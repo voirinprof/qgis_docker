@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # QGIS Server
+  # useful if you want to publish your data on the web
+  qgis-server:
+    image: qgis/qgis-server:ltr
+    container_name: qgis_server
+    volumes:
+      - ./data:/io/data # share the data directory with QGIS server and Flask app
+      - ./plugins:/io/plugins
+      - ./fonts:/usr/share/fonts
+    networks:
+      - qgis-net
+    restart: unless-stopped
+
+  # Flask GIS
+  # useful if you want to develop a python application with QGis API
+  flask:
+    build:
+      context: ./flaskgis
+      dockerfile: Dockerfile
+    container_name: flask_app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./flaskgis:/app
+      - ./data:/data  # share the data directory with the Flask app and QGIS server
+    environment:
+      - FLASK_ENV=development
+    depends_on:
+      - qgis-server
+    networks:
+      - qgis-net
+    restart: unless-stopped
+
+  # Nginx
+  # useful if you want to do a proxy
+  nginx:
+    image: nginx:latest
+    container_name: nginx_proxy
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - qgis-server
+    networks:
+      - qgis-net
+    restart: unless-stopped
+
+networks:
+  qgis-net:
+    driver: bridge
